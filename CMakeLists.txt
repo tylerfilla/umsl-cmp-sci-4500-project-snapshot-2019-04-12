@@ -18,10 +18,6 @@ add_subdirectory(third_party/pybind11)
 get_git_head_revision(GIT_REFSPEC GIT_HASH)
 
 set(cozmo_SRC_FILES
-        src/engine_op/list_friend_op.cpp
-        src/engine_op/remove_friend_op.cpp
-        src/engine_op/start_interactive_op.cpp
-        src/engine.cpp
         src/global.cpp
         src/main.cpp
         )

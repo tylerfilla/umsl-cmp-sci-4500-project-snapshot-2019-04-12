@@ -20,14 +20,12 @@
 
 #include <libgen.h>
 
+#include <pybind11/embed.h>
+
 #include "global.h"
 #include "version.h"
 
-#include "engine.h"
-#include "engine_op.h"
-#include "engine_op/list_friend_op.h"
-#include "engine_op/remove_friend_op.h"
-#include "engine_op/start_interactive_op.h"
+namespace py = pybind11;
 
 /** Operations to perform. */
 enum class Operation {
@@ -512,10 +510,6 @@ int main(int argc, const char** argv) {
     return 0;
   }
 
-  // The computed engine operation
-  // If this remains null, then the engine won't start
-  std::shared_ptr<EngineOp> op;
-
   // Dispatch or prepare operation
   switch (cmd.operation) {
     case Operation::nop:
@@ -523,29 +517,24 @@ int main(int argc, const char** argv) {
       print_usage(cmd, std::cout);
       return 0;
     case Operation::list_friends: {
-      auto this_op = std::make_shared<engine_op::ListFriendOp>();
+      using namespace py::literals;
 
-      // If no friend ID was provided
-      if (data.find("friend_id") == data.end()) {
-        // List all friends
-        this_op->set_mode(engine_op::ListFriendOp::Mode::all);
-      } else {
-        // Try to convert friend ID to an int
-        std::stringstream ss;
-        ss << data["friend_id"];
-        int friend_id = 0;
-        ss >> friend_id;
+      // The target friend ID (optional)
+      auto friend_id = data["friend_id"];
 
-        // List single friend
-        this_op->set_mode(engine_op::ListFriendOp::Mode::targeted);
-        this_op->set_friend_id(friend_id);
+      // Friend ID defaults to zero
+      if (friend_id.empty()) {
+        friend_id = "0";
       }
 
-      op = std::static_pointer_cast<EngineOp>(this_op);
-      break;
+      py::scoped_interpreter interp;
+      py::module::import("sys").attr("path").cast<py::list>().append("../python");
+      py::exec("import cozmonaut.core");
+      py::exec("cozmonaut.core.Core().op_list_friends(fid)", py::globals(), py::dict("fid"_a = friend_id));
+      return 0;
     }
     case Operation::remove_friends: {
-      auto this_op = std::make_shared<engine_op::RemoveFriendOp>();
+      using namespace py::literals;
 
       // If no friend ID was provided, show usage
       if (data.find("friend_id") == data.end()) {
@@ -554,25 +543,21 @@ int main(int argc, const char** argv) {
         return 0;
       }
 
-      // Try to convert friend ID to an int
-      std::stringstream ss;
-      ss << data["friend_id"];
-      int friend_id = 0;
-      ss >> friend_id;
+      // The target friend ID
+      auto friend_id = data["friend_id"];
 
-      // Remove single friend
-      this_op->set_friend_id(friend_id);
-
-      op = std::static_pointer_cast<EngineOp>(this_op);
-      break;
+      py::scoped_interpreter interp;
+      py::module::import("sys").attr("path").cast<py::list>().append("../python");
+      py::exec("import cozmonaut.core");
+      py::exec("cozmonaut.core.Core().op_remove_friends(fid)", py::globals(), py::dict("fid"_a = friend_id));
+      return 0;
     }
     case Operation::start_interactive: {
-      op = std::make_shared<engine_op::StartInteractiveOp>();
-      break;
+      py::scoped_interpreter interp;
+      py::module::import("sys").attr("path").cast<py::list>().append("../python");
+      py::exec("import cozmonaut.core");
+      py::exec("cozmonaut.core.Core().op_start_interactive()");
+      return 0;
     }
   }
-
-  // Execute the operation
-  Engine engine;
-  engine.execute(*op);
 }
