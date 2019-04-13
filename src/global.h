@@ -13,6 +13,9 @@ struct global {
 
   /** The program argument vector. */
   const char** argv;
+
+  /** The program executable name. */
+  const char* exec;
 };
 
 #ifdef __cplusplus

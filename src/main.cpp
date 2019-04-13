@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstring>
 #include <functional>
 #include <initializer_list>
 #include <iostream>
@@ -14,6 +15,8 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+#include <libgen.h>
 
 #include "global.h"
 #include "version.h"
@@ -149,7 +152,7 @@ constexpr Command root_command {
 template<class OStream>
 void print_header(const Command& cmd, OStream&& o) {
   // The command string
-  auto str = std::string("cozmo");
+  auto str = std::string(g->exec);
 
   // If command has a long name
   if (!cmd.long_name.empty()) {
@@ -257,7 +260,7 @@ void print_usage(const Command& cmd, OStream&& o) {
   print_header(cmd, o);
 
   // The command string
-  auto str = std::string("cozmo");
+  auto str = std::string(g->exec);
 
   // If command has a long name
   if (!cmd.long_name.empty()) {
@@ -290,7 +293,7 @@ void print_legal(OStream&& o) {
  */
 template<class OStream>
 void print_version(OStream&& o) {
-  o << "cozmo " << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_PATCH << "\n"
+  o << g->exec << " " << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_PATCH << "\n"
     << "built on " << VERSION_TIMESTAMP << "\n"
     << "commit " << VERSION_VCS_HASH << " (" << VERSION_VCS_BRANCH << ")\n";
 }
@@ -476,6 +479,9 @@ static std::pair<const Command&, std::unordered_map<std::string, std::string>> r
 int main(int argc, const char** argv) {
   g_mut->argc = argc;
   g_mut->argv = argv;
+
+  // Get the executable name
+  g_mut->exec = ::strdup(::basename(const_cast<char*>(argv[0])));
 
   // Read command-line arguments
   auto&&[cmd, data] = read_arguments();
