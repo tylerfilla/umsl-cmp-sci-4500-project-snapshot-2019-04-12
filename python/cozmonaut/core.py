@@ -7,21 +7,21 @@
 class Core:
     """The cozmonaut core."""
 
-    def __init__(self):
-        pass
+    def __init__(self, params: dict):
+        self.params = params
 
     #
-    # C++ ENTRY POINTS
+    # Entry Points
     #
 
-    def op_list_friends(self, fid: str):
+    def op_list_friends(self):
         """List friends."""
-        print(f'op_list_friends({fid})')
+        print(f'op_list_friends("{self.params.get("friend_id", "")}")')
         print('<< NOT IMPLEMENTED >>')
 
-    def op_remove_friends(self, fid: str):
+    def op_remove_friends(self):
         """Remove friends."""
-        print(f'op_remove_friends({fid})')
+        print(f'op_remove_friends("{self.params.get("friend_id", "")}")')
         print('<< NOT IMPLEMENTED >>')
 
     def op_start_interactive(self):

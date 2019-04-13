@@ -21,6 +21,7 @@
 #include <libgen.h>
 
 #include <pybind11/embed.h>
+#include <pybind11/stl.h>
 
 #include "global.h"
 #include "version.h"
@@ -138,6 +139,30 @@ constexpr Command root_command {
       "show legal information",
       true, // Flag
       "legal",
+    },
+    Command::Option {
+      {"--sql-host"},
+      "the sql database hostname",
+      false,
+      "sql_host",
+    },
+    Command::Option {
+      {"--sql-db"},
+      "the sql database name",
+      false,
+      "sql_db",
+    },
+    Command::Option {
+      {"--sql-user"},
+      "the sql database username",
+      false,
+      "sql_user",
+    },
+    Command::Option {
+      {"--sql-pass"},
+      "the sql database password",
+      false,
+      "sql_pass",
     },
     Command::Option {
       {"--version"},
@@ -490,73 +515,64 @@ int main(int argc, const char** argv) {
   g_mut->exec = ::strdup(::basename(const_cast<char*>(argv[0])));
 
   // Read command-line arguments
-  auto&&[cmd, data] = read_arguments();
+  // This gets the requested command and all its parameters
+  auto&&[cmd, params] = read_arguments();
 
   // If help was requested
-  if (data.find("help") != data.end()) {
+  if (params.find("help") != params.end()) {
     print_help(cmd, std::cout);
     return 0;
   }
 
   // If legal was requested
-  if (data.find("legal") != data.end()) {
+  if (params.find("legal") != params.end()) {
     print_legal(std::cout);
     return 0;
   }
 
   // If version was requested
-  if (data.find("version") != data.end()) {
+  if (params.find("version") != params.end()) {
     print_version(std::cout);
     return 0;
   }
 
-  // Dispatch or prepare operation
+  // If no operation was requested, show command usage
+  if (cmd.operation == Operation::nop) {
+    print_usage(cmd, std::cout);
+    return 0;
+  }
+
+  // Spin up a Python VM and import the cozmonaut core module
+  py::scoped_interpreter interp;
+  py::module::import("sys").attr("path").cast<py::list>().append("../python"); // TODO: Compute path to module
+  py::exec("import cozmonaut.core");
+
+  // Instantiate the core
+  py::object core;
+  {
+    using namespace py::literals;
+    core = py::eval("cozmonaut.core.Core(params)", py::globals(), py::dict("params"_a = params));
+  }
+
+  // Dispatch operation
   switch (cmd.operation) {
-    case Operation::nop:
-      // No operation to perform, so show usage
-      print_usage(cmd, std::cout);
-      return 0;
     case Operation::list_friends: {
-      using namespace py::literals;
-
-      // The target friend ID (optional)
-      auto friend_id = data["friend_id"];
-
-      // Friend ID defaults to zero
-      if (friend_id.empty()) {
-        friend_id = "0";
-      }
-
-      py::scoped_interpreter interp;
-      py::module::import("sys").attr("path").cast<py::list>().append("../python");
-      py::exec("import cozmonaut.core");
-      py::exec("cozmonaut.core.Core().op_list_friends(fid)", py::globals(), py::dict("fid"_a = friend_id));
+      core.attr("op_list_friends")();
       return 0;
     }
     case Operation::remove_friends: {
-      using namespace py::literals;
-
       // If no friend ID was provided, show usage
-      if (data.find("friend_id") == data.end()) {
+      if (params.find("friend_id") == params.end()) {
         std::cout << "no friend id provided\n" << "\n";
         print_usage(cmd, std::cout);
         return 0;
       }
 
-      // The target friend ID
-      auto friend_id = data["friend_id"];
-
-      py::scoped_interpreter interp;
-      py::module::import("sys").attr("path").cast<py::list>().append("../python");
-      py::exec("import cozmonaut.core");
-      py::exec("cozmonaut.core.Core().op_remove_friends(fid)", py::globals(), py::dict("fid"_a = friend_id));
+      core.attr("op_remove_friends")();
       return 0;
     }
     case Operation::start_interactive: {
-      py::scoped_interpreter interp;
-      py::module::import("sys").attr("path").cast<py::list>().append("../python");
-      py::exec("import cozmonaut.core");
-      py::exec("cozmonaut.core.Core().op_start_interactive()");
+      core.attr("op_start_interactive")();
       return 0;
     }
   }
