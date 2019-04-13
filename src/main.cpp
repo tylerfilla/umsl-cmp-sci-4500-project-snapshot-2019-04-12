@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "global.h"
+#include "version.h"
 
 /** Operations to perform. */
 enum class Operation {
@@ -130,6 +131,55 @@ constexpr Command root_command {
 };
 
 /**
+ * Print help text for a command to an output stream.
+ *
+ * @tparam OStream Type of the output stream
+ * @param cmd The command
+ * @param o The output stream
+ */
+template<class OStream>
+void print_help(const Command& cmd, OStream&& o) {
+  o << "TODO: Write help text\n";
+}
+
+/**
+ * Print usage text for a command to an output stream.
+ *
+ * @tparam OStream Type of the output stream
+ * @param cmd The command
+ * @param o The output stream
+ */
+template<class OStream>
+void print_usage(const Command& cmd, OStream&& o) {
+  o << "TODO: Write usage text\n";
+}
+
+/**
+ * Print legal text to an output stream.
+ *
+ * @tparam OStream Type of the output stream
+ * @param o The output stream
+ */
+template<class OStream>
+void print_legal(OStream&& o) {
+  o << "Cozmonaut\n"
+    << "Copyright 2019 The Cozmonaut Contributors\n";
+}
+
+/**
+ * Print version text to an output stream.
+ *
+ * @tparam OStream Type of the output stream
+ * @param o The output stream
+ */
+template<class OStream>
+void print_version(OStream&& o) {
+  o << "cozmo " << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_PATCH << "\n"
+    << "built on " << VERSION_TIMESTAMP << "\n"
+    << "commit " << VERSION_VCS_HASH << " (" << VERSION_VCS_BRANCH << ")\n";
+}
+
+/**
  * Read command-line arguments.
  *
  * @return A pair with the command and a map of read data
@@ -141,7 +191,7 @@ static std::pair<const Command&, std::unordered_map<std::string, std::string>> r
   // A list of encountered command parts (the command chain)
   // The root command is implicitly encountered right out of the gate
   std::vector<std::reference_wrapper<const Command>> commands;
-  commands.push_back(std::ref(root_command));
+  commands.emplace_back(root_command);
 
   // Try to match an argument as an option
   auto match_option = [&](std::string_view arg) -> const Command::Option* {
@@ -316,26 +366,27 @@ int main(int argc, const char** argv) {
 
   // If help was requested
   if (data.find("help") != data.end()) {
-    std::cout << "show help\n";
+    print_help(cmd, std::cout);
     return 0;
   }
 
   // If legal was requested
   if (data.find("legal") != data.end()) {
-    std::cout << "show legal\n";
+    print_legal(std::cout);
     return 0;
   }
 
   // If version was requested
   if (data.find("version") != data.end()) {
-    std::cout << "show version\n";
+    print_version(std::cout);
     return 0;
   }
 
   // Dispatch requested operation
   switch (cmd.operation) {
     case Operation::nop:
-      std::cout << "doing nothing (show usage)\n";
+      // No operation to perform, so show usage
+      print_usage(cmd, std::cout);
       break;
     case Operation::list_friends:
       std::cout << "want to list friends: " << data["friend_id"] << "\n";
