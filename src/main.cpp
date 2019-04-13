@@ -9,6 +9,8 @@
 #include <functional>
 #include <initializer_list>
 #include <iostream>
+#include <memory>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -20,6 +22,12 @@
 
 #include "global.h"
 #include "version.h"
+
+#include "engine.h"
+#include "engine_op.h"
+#include "engine_op/list_friend_op.h"
+#include "engine_op/remove_friend_op.h"
+#include "engine_op/start_interactive_op.h"
 
 /** Operations to perform. */
 enum class Operation {
@@ -504,26 +512,67 @@ int main(int argc, const char** argv) {
     return 0;
   }
 
-  // Dispatch requested operation
+  // The computed engine operation
+  // If this remains null, then the engine won't start
+  std::shared_ptr<EngineOp> op;
+
+  // Dispatch or prepare operation
   switch (cmd.operation) {
     case Operation::nop:
       // No operation to perform, so show usage
       print_usage(cmd, std::cout);
+      return 0;
+    case Operation::list_friends: {
+      auto this_op = std::make_shared<engine_op::ListFriendOp>();
+
+      // If no friend ID was provided
+      if (data.find("friend_id") == data.end()) {
+        // List all friends
+        this_op->set_mode(engine_op::ListFriendOp::Mode::all);
+      } else {
+        // Try to convert friend ID to an int
+        std::stringstream ss;
+        ss << data["friend_id"];
+        int friend_id = 0;
+        ss >> friend_id;
+
+        // List single friend
+        this_op->set_mode(engine_op::ListFriendOp::Mode::targeted);
+        this_op->set_friend_id(friend_id);
+      }
+
+      op = std::static_pointer_cast<EngineOp>(this_op);
       break;
-    case Operation::list_friends:
-      std::cout << "want to list friends: " << data["friend_id"] << "\n";
-      break;
-    case Operation::remove_friends:
-      // If friend ID was not given, show usage
+    }
+    case Operation::remove_friends: {
+      auto this_op = std::make_shared<engine_op::RemoveFriendOp>();
+
+      // If no friend ID was provided, show usage
       if (data.find("friend_id") == data.end()) {
         std::cout << "no friend id provided\n" << "\n";
         print_usage(cmd, std::cout);
         return 0;
       }
-      std::cout << "want to remove friends: " << data["friend_id"] << "\n";
+
+      // Try to convert friend ID to an int
+      std::stringstream ss;
+      ss << data["friend_id"];
+      int friend_id = 0;
+      ss >> friend_id;
+
+      // Remove single friend
+      this_op->set_friend_id(friend_id);
+
+      op = std::static_pointer_cast<EngineOp>(this_op);
       break;
-    case Operation::start_interactive:
-      std::cout << "want to start interactive\n";
+    }
+    case Operation::start_interactive: {
+      op = std::make_shared<engine_op::StartInteractiveOp>();
       break;
+    }
   }
+
+  // Execute the operation
+  Engine engine;
+  engine.execute(*op);
 }
