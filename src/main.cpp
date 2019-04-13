@@ -8,6 +8,7 @@
 #include <functional>
 #include <initializer_list>
 #include <iostream>
+#include <string>
 #include <string_view>
 #include <tuple>
 #include <unordered_map>
@@ -45,6 +46,9 @@ struct Command {
   /** The command aliases. */
   std::initializer_list<std::string_view> aliases;
 
+  /** The command long name. */
+  std::string_view long_name;
+
   /** The command description. */
   std::string_view description;
 
@@ -61,16 +65,19 @@ struct Command {
 /** The command layout. */
 constexpr Command root_command {
   {}, // No aliases
+  nullptr, // No long name
   nullptr, // No description
   Operation::nop,
   {
     Command {
       {"friend", "fr"},
+      "friend",
       "friend management",
       Operation::nop,
       {
         Command {
           {"list", "ls"},
+          "friend list",
           "list friend details",
           Operation::list_friends,
           {/* No subcommands */},
@@ -85,6 +92,7 @@ constexpr Command root_command {
         },
         Command {
           {"remove", "rm"},
+          "friend remove",
           "remove friends",
           Operation::remove_friends,
           {/* No subcommands */},
@@ -102,6 +110,7 @@ constexpr Command root_command {
     },
     Command {
       {"go"},
+      "go",
       "start interactive use",
       Operation::start_interactive,
       {/* No subcommands */},
@@ -131,6 +140,30 @@ constexpr Command root_command {
 };
 
 /**
+ * Print header text for a command to an output stream.
+ *
+ * @tparam OStream Type of the output stream
+ * @param cmd The command
+ * @param o The output stream
+ */
+template<class OStream>
+void print_header(const Command& cmd, OStream&& o) {
+  // The command string
+  auto str = std::string("cozmo");
+
+  // If command has a long name
+  if (!cmd.long_name.empty()) {
+    // Append long name
+    str += " ";
+    str += cmd.long_name;
+  }
+
+  // Print header text
+  o << "usage: " << str << " <command> [<args>]\n"
+    << "   or: " << str << " <opts>\n";
+}
+
+/**
  * Print help text for a command to an output stream.
  *
  * @tparam OStream Type of the output stream
@@ -139,7 +172,77 @@ constexpr Command root_command {
  */
 template<class OStream>
 void print_help(const Command& cmd, OStream&& o) {
-  o << "TODO: Write help text\n";
+  print_header(cmd, o);
+
+  // If command has options
+  if (cmd.options.size()) {
+    std::cout << "\n";
+    std::cout << "options:\n";
+
+    // The target padding between aliases and description
+    int target_pad = 16;
+
+    // Loop through subcommands for content
+    for (auto&& opt : cmd.options) {
+      std::cout << "  ";
+
+      // Print aliases with separating commas
+      int pad = 0;
+      for (auto alias = opt.aliases.begin(); alias != opt.aliases.end(); ++alias) {
+        std::cout << *alias;
+        pad += alias->length();
+
+        if (alias < opt.aliases.end() - 1) {
+          std::cout << ", ";
+          pad += 2;
+        }
+      }
+
+      // Pad the space between aliases and description
+      for (; pad < target_pad; ++pad) {
+        std::cout << " ";
+      }
+
+      // Print description
+      std::cout << opt.description;
+      std::cout << "\n";
+    }
+  }
+
+  // If command has subcommands
+  if (cmd.subcommands.size()) {
+    std::cout << "\n";
+    std::cout << "commands:\n";
+
+    // The target padding between aliases and description
+    int target_pad = 16;
+
+    // Loop through subcommands for content
+    for (auto&& sub : cmd.subcommands) {
+      std::cout << "  ";
+
+      // Print aliases with separating commas
+      int pad = 0;
+      for (auto alias = sub.aliases.begin(); alias != sub.aliases.end(); ++alias) {
+        std::cout << *alias;
+        pad += alias->length();
+
+        if (alias < sub.aliases.end() - 1) {
+          std::cout << ", ";
+          pad += 2;
+        }
+      }
+
+      // Pad the space between aliases and description
+      for (; pad < target_pad; ++pad) {
+        std::cout << " ";
+      }
+
+      // Print description
+      std::cout << sub.description;
+      std::cout << "\n";
+    }
+  }
 }
 
 /**
@@ -151,7 +254,20 @@ void print_help(const Command& cmd, OStream&& o) {
  */
 template<class OStream>
 void print_usage(const Command& cmd, OStream&& o) {
-  o << "TODO: Write usage text\n";
+  print_header(cmd, o);
+
+  // The command string
+  auto str = std::string("cozmo");
+
+  // If command has a long name
+  if (!cmd.long_name.empty()) {
+    // Append long name
+    str += " ";
+    str += cmd.long_name;
+  }
+
+  std::cout << "\n";
+  o << "try `" << str << " -h' for more info\n";
 }
 
 /**
@@ -271,7 +387,7 @@ static std::pair<const Command&, std::unordered_map<std::string, std::string>> r
               if (arg_eq_after.empty() && ++argi >= g->argv + g->argc) {
                 // There is no way to get the data we need, so halt
                 std::cerr << "no data given to long option: " << arg_eq_before << "\n";
-                return {root_command, {}};
+                return {commands.back(), data};
               }
 
               // Use the next argument as raw data
@@ -288,7 +404,7 @@ static std::pair<const Command&, std::unordered_map<std::string, std::string>> r
       }
 
       std::cerr << "no such long option: " << arg << "\n";
-      return {root_command, {}};
+      return {commands.back(), data};
     } else if (arg.length() > 1 && arg.find('-') == 0) {
       // Argument starts with one dash, so assume it is a POSIX-style option
 
@@ -320,7 +436,7 @@ static std::pair<const Command&, std::unordered_map<std::string, std::string>> r
               if (++argi >= g->argv + g->argc) {
                 // There is no way to get the data we need, so halt
                 std::cerr << "no data given to short option: " << buf << "\n";
-                return {root_command, {}};
+                return {commands.back(), data};
               }
 
               // Map the data
@@ -333,7 +449,7 @@ static std::pair<const Command&, std::unordered_map<std::string, std::string>> r
         }
 
         std::cerr << "no such short option: " << buf << "\n";
-        return {root_command, {}};
+        return {commands.back(), data};
       }
     } else {
       // The argument is not an option, so assume it is a subcommand
@@ -349,7 +465,7 @@ static std::pair<const Command&, std::unordered_map<std::string, std::string>> r
 
       // Unrecognized argument
       std::cerr << "unrecognized argument: " << arg << "\n";
-      return {root_command, {}};
+      return {commands.back(), data};
     }
   }
 
@@ -392,6 +508,12 @@ int main(int argc, const char** argv) {
       std::cout << "want to list friends: " << data["friend_id"] << "\n";
       break;
     case Operation::remove_friends:
+      // If friend ID was not given, show usage
+      if (data.find("friend_id") == data.end()) {
+        std::cout << "no friend id provided\n" << "\n";
+        print_usage(cmd, std::cout);
+        return 0;
+      }
       std::cout << "want to remove friends: " << data["friend_id"] << "\n";
       break;
     case Operation::start_interactive:
