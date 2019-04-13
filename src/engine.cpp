@@ -4,9 +4,14 @@
  */
 
 #include <iostream>
+#include <pybind11/embed.h>
 #include "engine.h"
 
+namespace py = pybind11;
+
 struct EngineImpl {
+  /** The Python interpreter. */
+  py::scoped_interpreter m_python;
 };
 
 Engine::Engine() : impl() {
@@ -16,5 +21,5 @@ Engine::Engine() : impl() {
 Engine::~Engine() = default;
 
 void Engine::execute(EngineOp& op) {
-  std::cout << "engine\n";
+  py::eval("print('this is python code running')");
 }

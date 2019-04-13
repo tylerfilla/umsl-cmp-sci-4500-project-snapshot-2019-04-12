@@ -11,7 +11,7 @@
 struct EngineImpl;
 struct EngineOp;
 
-/** A program engine. */
+/** The program engine. */
 class Engine {
   /** PImpl. */
   std::unique_ptr<EngineImpl> impl;
